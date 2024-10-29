@@ -21,6 +21,7 @@ public:
     void setFloat(const std::string &name, float value);
     void applyTransform(glm::mat4 trans);
     void setMatrix(std::string name, glm::mat4 matrix);
+    void setVec3(std::string name, glm::vec3 vector);
     unsigned int getID();
 };
 
