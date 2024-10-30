@@ -68,3 +68,10 @@ unsigned int ShaderProgram::getID()
 {
     return ID;
 }
+
+void ShaderProgram::setMaterial(Material mat) {
+    setVec3("material.ambient", mat.ambient);
+    setVec3("material.diffuse", mat.diffuse);
+    setVec3("material.specular", mat.specular);
+    setFloat("material.shininess", mat.shininess * 128.f);
+}

@@ -2,11 +2,13 @@
 #include <GLFW/glfw3.h>
 
 #include <iostream>
+#include <vector>
 
 #include "shader_loader.h"
 #include "ShaderProgram.h"
 #include "Texture.h"
 #include "Camera.h"
+
 
 int WINDOW_WIDTH = 1920;
 int WINDOW_HEIGHT = 1080;
@@ -66,8 +68,8 @@ int main(void) {
     shaderProgram.cleanShaders();
 
     unsigned int lightingVertexShader, lightingFragmentShader;
-    lightingVertexShader = loadShader(GL_VERTEX_SHADER, "lighting.vert");
-    lightingFragmentShader = loadShader(GL_FRAGMENT_SHADER, "lighting.frag");
+    lightingVertexShader = loadShader(GL_VERTEX_SHADER, "lighting_source.vert");
+    lightingFragmentShader = loadShader(GL_FRAGMENT_SHADER, "lighting_source.frag");
     ShaderProgram lightingShader(lightingVertexShader, lightingFragmentShader);
     lightingShader.cleanShaders();
 
@@ -143,7 +145,7 @@ int main(void) {
 
     glEnable(GL_DEPTH_TEST);
 
-    Texture container("assets/container.jpg");
+    Texture container("assets/container2.png");
 
 
     float deltaTime = 0.0f;
@@ -159,6 +161,11 @@ int main(void) {
     glEnableVertexAttribArray(0);
 
     glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+
+    std::vector<glm::vec3> cubes_positions = {
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(1.2f, -1.0f, -2.0f),
+    };
     
 
     // main loop
@@ -168,9 +175,12 @@ int main(void) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shaderProgram.use();
-        shaderProgram.setVec3("lightColor",  glm::vec3(1.0f, 1.0f, 1.0f));
         shaderProgram.setVec3("lightPos",  lightPos);
         shaderProgram.setVec3("viewPos", camera.getPos());
+        shaderProgram.setMaterial(Materials::gold);
+        shaderProgram.setVec3("light.ambient",  glm::vec3(0.2f, 0.2f, 0.2f));
+        shaderProgram.setVec3("light.diffuse",  glm::vec3(0.5f, 0.5f, 0.5f)); // darken diffuse light a bit
+        shaderProgram.setVec3("light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
 
         glm::mat4 view          = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
         glm::mat4 projection    = glm::mat4(1.0f);
@@ -179,17 +189,22 @@ int main(void) {
         // camera/view transformation
         view = glm::lookAt(camera.getPos(), camera.getPos() + camera.getFront(), camera.getUp());
 
-        model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.f), glm::vec3(0.0f, 1.0f, 0.0f));
-
         // pass transformation matrices to the shader
         shaderProgram.setMatrix("projection", projection); // note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
         shaderProgram.setMatrix("view", view);
-        shaderProgram.setMatrix("model", model);
         
-
         glBindVertexArray(VAO);
         glBindTexture(GL_TEXTURE_2D, container.getID());
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        for (int i = 0; i < cubes_positions.size(); i++)
+        {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, cubes_positions[i]);
+            model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.f), glm::vec3(0.0f, 1.0f, 0.0f));
+            shaderProgram.setMatrix("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
+        
+
 
 
         lightingShader.use();
