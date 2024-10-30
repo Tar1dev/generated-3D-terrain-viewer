@@ -146,6 +146,7 @@ int main(void) {
     glEnable(GL_DEPTH_TEST);
 
     Texture container("assets/container2.png");
+    Texture container_specular("assets/container2_specular.png");
 
 
     float deltaTime = 0.0f;
@@ -177,7 +178,11 @@ int main(void) {
         shaderProgram.use();
         shaderProgram.setVec3("lightPos",  lightPos);
         shaderProgram.setVec3("viewPos", camera.getPos());
-        shaderProgram.setMaterial(Materials::gold);
+
+        shaderProgram.setInt("material.diffuse", 0);
+        shaderProgram.setInt("material.specular", 1);
+        shaderProgram.setFloat("material.shininess",  30.f);
+        shaderProgram.setVec3("light.ambient",  glm::vec3(0.2f, 0.2f, 0.2f));
         shaderProgram.setVec3("light.ambient",  glm::vec3(0.2f, 0.2f, 0.2f));
         shaderProgram.setVec3("light.diffuse",  glm::vec3(0.5f, 0.5f, 0.5f)); // darken diffuse light a bit
         shaderProgram.setVec3("light.specular", glm::vec3(1.0f, 1.0f, 1.0f));
@@ -194,7 +199,12 @@ int main(void) {
         shaderProgram.setMatrix("view", view);
         
         glBindVertexArray(VAO);
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, container.getID());
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, container_specular.getID());
+
         for (int i = 0; i < cubes_positions.size(); i++)
         {
             model = glm::mat4(1.0f);
