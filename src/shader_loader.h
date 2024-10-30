@@ -44,6 +44,7 @@ unsigned int loadShader(unsigned int shaderType, std::string fileName) {
 
     int  success;
     char infoLog[512];
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if(!success) {
         glGetShaderInfoLog(shader, 512, NULL, infoLog);
         std::cerr << "ERROR::SHADER::COMPILATION_FAILED\n" << infoLog << std::endl;

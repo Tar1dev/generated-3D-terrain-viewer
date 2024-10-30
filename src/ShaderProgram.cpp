@@ -6,6 +6,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <iostream>
+
 ShaderProgram::ShaderProgram(unsigned int vertexShader, unsigned int fragmentShader) {
     
     this->vertexShader = vertexShader;
@@ -20,6 +22,7 @@ ShaderProgram::ShaderProgram(unsigned int vertexShader, unsigned int fragmentSha
     glGetProgramiv(ID, GL_LINK_STATUS, &success);
     if(!success) {
         glGetProgramInfoLog(ID, 512, 0, infoLog);
+        std::cerr << infoLog << std::endl;
     }
 
     glUseProgram(this->ID);
