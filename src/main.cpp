@@ -17,7 +17,7 @@ int WINDOW_HEIGHT = 1080;
 const char *WINDOW_TITLE = "Procedural 3D terrain generation";
 
 Camera camera(WINDOW_WIDTH, WINDOW_HEIGHT);
-bool xRayToggled = false;
+bool xRayToggled = true;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -162,8 +162,11 @@ int main(void) {
     {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        
+        if (xRayToggled)
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        else
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         shader.use();
         // shader.setVec3("viewPos", camera.getPos());
@@ -230,8 +233,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+    if (key == GLFW_KEY_T && action == GLFW_PRESS) {
         xRayToggled = !xRayToggled; // Toggle the switch
-        std::cout << "Toggled: " << xRayToggled << std::endl;
     }
 }
