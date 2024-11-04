@@ -32,7 +32,7 @@ void Camera::setFront(glm::vec3 new_front) {
 void Camera::setPos(glm::vec3 new_pos) { pos = new_pos; }
 
 void Camera::update(GLFWwindow* window, float dt) {
-    float cameraSpeed = 2.5f * dt; // adjust accordingly
+    float cameraSpeed = 5.5f * dt; // adjust accordingly
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         pos += cameraSpeed * front;
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)

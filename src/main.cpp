@@ -8,17 +8,21 @@
 #include "ShaderProgram.h"
 #include "Texture.h"
 #include "Camera.h"
+// #include "utils/FastNoiseLite.h"
+#include "utils/PerlinNoise.hpp"
 
 
 int WINDOW_WIDTH = 1920;
 int WINDOW_HEIGHT = 1080;
-const char *WINDOW_TITLE = "ToonBox";
+const char *WINDOW_TITLE = "Procedural 3D terrain generation";
 
 Camera camera(WINDOW_WIDTH, WINDOW_HEIGHT);
+bool xRayToggled = false;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 int main(void) {
     // init glfw
@@ -43,6 +47,7 @@ int main(void) {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback); 
+    glfwSetKeyCallback(window, keyCallback);
     glfwMakeContextCurrent(window);
 
     // init glad
@@ -54,125 +59,103 @@ int main(void) {
 
     //loading shaders
     unsigned int vertexShader, fragmentShader;
-    vertexShader = loadShader(GL_VERTEX_SHADER, "vertex.vert");
+    vertexShader = loadShader(GL_VERTEX_SHADER, "terrain.vert");
     if (!vertexShader) {
         std::cerr << "Failled to load the vertex shader" << std::endl;
         glfwTerminate();
     }
-    fragmentShader = loadShader(GL_FRAGMENT_SHADER, "fragment.frag");
+    fragmentShader = loadShader(GL_FRAGMENT_SHADER, "terrain.frag");
     if (!fragmentShader) {
         std::cerr << "Failled to load the fragment shader" << std::endl;
         glfwTerminate();
     }
-    ShaderProgram shaderProgram(vertexShader, fragmentShader);
-    shaderProgram.cleanShaders();
+    ShaderProgram shader(vertexShader, fragmentShader);
+    shader.cleanShaders();
 
-    unsigned int lightingVertexShader, lightingFragmentShader;
-    lightingVertexShader = loadShader(GL_VERTEX_SHADER, "lighting_source.vert");
-    lightingFragmentShader = loadShader(GL_FRAGMENT_SHADER, "lighting_source.frag");
-    ShaderProgram lightingShader(lightingVertexShader, lightingFragmentShader);
-    lightingShader.cleanShaders();
+    const siv::PerlinNoise::seed_type seed = 98462626u;
+
+	const siv::PerlinNoise perlin{ seed };
+
+    const int terrain_witdh = 100;
+    const int terrain_height = 100;
+    std::vector<std::vector<float>> heightMap(terrain_witdh, std::vector<float>(terrain_height));
+	
+	for (int x = 0; x < terrain_height; ++x)
+	{
+		for (int y = 0; y < terrain_witdh; ++y)
+		{
+			float nx = (float)x / terrain_witdh - 0.5f, ny = (float)y / terrain_height - 0.5f;
+            heightMap[x][y] = perlin.octave2D_01((nx), (ny), 4); // Scale up to make the terrain more interesting
+		}
+	}
+
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
+    int maxHeight = 50;
+
+    for (int x = 0; x < terrain_witdh; x++) {
+        for (int y = 0; y < terrain_height; y++) {
+            // Position of vertex based on heightmap
+            float posX = (float)x;
+            float posY = heightMap[x][y] * maxHeight - maxHeight; // maxHeight is a scaling factor for the height
+            float posZ = (float)y;
+
+            vertices.push_back(posX);
+            vertices.push_back(posY);
+            vertices.push_back(posZ);
+        }
+    }
+    
+
+    // Generating indices for a grid of triangles
+    for (int x = 0; x < terrain_witdh - 1; x++) {
+        for (int y = 0; y < terrain_height - 1; y++) {
+            int topLeft = x * terrain_height + y;
+            int topRight = (x + 1) * terrain_height + y;
+            int bottomLeft = x * terrain_height + (y + 1);
+            int bottomRight = (x + 1) * terrain_height + (y + 1);
+
+            indices.push_back(topLeft);
+            indices.push_back(bottomLeft);
+            indices.push_back(topRight);
+
+            indices.push_back(topRight);
+            indices.push_back(bottomLeft);
+            indices.push_back(bottomRight);
+        }
+    }
 
 
-    float vertices[] = {
-        // position          // texture       // normals
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,     0.0f, 0.0f, -1.0f,
-        0.5f, -0.5f, -0.5f,  1.0f, 0.0f,     0.0f, 0.0f, -1.0f,
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,     0.0f, 0.0f, -1.0f,
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,     0.0f, 0.0f, -1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,     0.0f, 0.0f, -1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,     0.0f, 0.0f, -1.0f,
     
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,     0.0f, 0.0f, 1.0f,
-        0.5f, -0.5f,  0.5f,  1.0f, 0.0f,     0.0f, 0.0f,  1.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 1.0f,     0.0f, 0.0f,  1.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 1.0f,     0.0f, 0.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,     0.0f, 0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,     0.0f, 0.0f, 1.0f,
-    
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,     -1.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,     -1.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,     -1.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,     -1.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,     -1.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,     -1.0f, 0.0f, 0.0f,
-    
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,     1.0f, 0.0f, 0.0f,
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,     1.0f, 0.0f, 0.0f,
-        0.5f, -0.5f, -0.5f,  0.0f, 1.0f,     1.0f, 0.0f, 0.0f,
-        0.5f, -0.5f, -0.5f,  0.0f, 1.0f,     1.0f, 0.0f, 0.0f,
-        0.5f, -0.5f,  0.5f,  0.0f, 0.0f,     1.0f, 0.0f, 0.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,     1.0f, 0.0f, 0.0f,
-    
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,     0.0f, -1.0f,  0.0f,
-        0.5f, -0.5f, -0.5f,  1.0f, 1.0f,     0.0f,  -1.0f, 0.0f,
-        0.5f, -0.5f,  0.5f,  1.0f, 0.0f,     0.0f,  -1.0f, 0.0f,
-        0.5f, -0.5f,  0.5f,  1.0f, 0.0f,     0.0f,  -1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,     0.0f, -1.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,     0.0f, -1.0f,  0.0f,
-    
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,     0.0f, 1.0f,  0.0f,
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f,     0.0f,  1.0f,  0.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,     0.0f,  1.0f,  0.0f,
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f,     0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,     0.0f, 1.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,     0.0f, 1.0f,  0.0f,
-    };    
-    
-    unsigned int VAO, VBO;
+    unsigned int VAO, VBO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    // glGenBuffers(1, &EBO);
+    glGenBuffers(1, &EBO);
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
 
 
-    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(mesh.indices), mesh.indices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * indices.size(), indices.data(), GL_STATIC_DRAW);
 
     // position
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // texture
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3* sizeof(float)));
-    glEnableVertexAttribArray(1);
+    // // texture
+    // glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3* sizeof(float)));
+    // glEnableVertexAttribArray(1);
 
-    // normals vectors
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5* sizeof(float)));
-    glEnableVertexAttribArray(2);
+    // // normals vectors
+    // glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5* sizeof(float)));
+    // glEnableVertexAttribArray(2);
 
+    glFrontFace(GL_CW);
     glEnable(GL_DEPTH_TEST);
-
-    Texture container("assets/container2.png");
-    Texture container_specular("assets/container2_specular.png");
-
 
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
-
-    unsigned int lightVAO;
-    glGenVertexArrays(1, &lightVAO);
-    glBindVertexArray(lightVAO);
-    // we only need to bind to the VBO, the container's VBO's data already contains the data.
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // set the vertex attribute 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    std::vector<glm::vec3> pointLightPositions = {
-        glm::vec3( 0.7f,  0.2f,  2.0f),
-        glm::vec3( 2.3f, -3.3f, -4.0f),
-        // glm::vec3(-4.0f,  2.0f, -12.0f),
-        // glm::vec3( 0.0f,  0.0f, -3.0f)
-    };
-
-    std::vector<glm::vec3> cubes_positions = {
-        glm::vec3(0.0f, 0.0f, 0.0f),
-        glm::vec3(1.2f, -1.0f, -2.0f),
-    };
-    
 
     // main loop
     while (!glfwWindowShouldClose(window))
@@ -180,35 +163,21 @@ int main(void) {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        shaderProgram.use();
-        shaderProgram.setVec3("viewPos", camera.getPos());
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-        shaderProgram.setInt("material.diffuse", 0);
-        shaderProgram.setInt("material.specular", 1);
-        shaderProgram.setFloat("material.shininess",  30.f);
+        shader.use();
+        // shader.setVec3("viewPos", camera.getPos());
 
-        // directional light
-        shaderProgram.setVec3("dirLight.direction", glm::vec3(-0.2f, -1.0f, -0.3f));
-        shaderProgram.setVec3("dirLight.ambient", glm::vec3(0.1f, 0.1f, 0.1f));
-        shaderProgram.setVec3("dirLight.diffuse", glm::vec3(0.4f, 0.4f, 0.4f));
-        shaderProgram.setVec3("dirLight.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+        // shader.setInt("material.diffuse", 0);
+        // shader.setInt("material.specular", 1);
+        // shader.setFloat("material.shininess",  30.f);
 
-        // point light 1
-        shaderProgram.setVec3("pointLights[0].position", pointLightPositions[0]);
-        shaderProgram.setVec3("pointLights[0].ambient", glm::vec3(0.05f, 0.05f, 0.05f));
-        shaderProgram.setVec3("pointLights[0].diffuse", glm::vec3(0.8f, 0.8f, 0.8f));
-        shaderProgram.setVec3("pointLights[0].specular", glm::vec3(1.0f, 1.0f, 1.0f));
-        shaderProgram.setFloat("pointLights[0].constant", 1.0f);
-        shaderProgram.setFloat("pointLights[0].linear", 0.09f);
-        shaderProgram.setFloat("pointLights[0].quadratic", 0.032f);
-        // point light 2
-        shaderProgram.setVec3("pointLights[1].position", pointLightPositions[1]);
-        shaderProgram.setVec3("pointLights[1].ambient", glm::vec3(0.05f, 0.05f, 0.05f));
-        shaderProgram.setVec3("pointLights[1].diffuse", glm::vec3(0.8f, 0.8f, 0.8f));
-        shaderProgram.setVec3("pointLights[1].specular", glm::vec3(1.0f, 1.0f, 1.0f));
-        shaderProgram.setFloat("pointLights[1].constant", 1.0f);
-        shaderProgram.setFloat("pointLights[1].linear", 0.09f);
-        shaderProgram.setFloat("pointLights[1].quadratic", 0.032f);
+        // // directional light
+        // shader.setVec3("dirLight.direction", glm::vec3(-0.2f, -1.0f, -0.3f));
+        // shader.setVec3("dirLight.ambient", glm::vec3(0.1f, 0.1f, 0.1f));
+        // shader.setVec3("dirLight.diffuse", glm::vec3(0.4f, 0.4f, 0.4f));
+        // shader.setVec3("dirLight.specular", glm::vec3(0.5f, 0.5f, 0.5f));
+
 
         glm::mat4 view          = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
         glm::mat4 projection    = glm::mat4(1.0f);
@@ -218,44 +187,12 @@ int main(void) {
         view = glm::lookAt(camera.getPos(), camera.getPos() + camera.getFront(), camera.getUp());
 
         // pass transformation matrices to the shader
-        shaderProgram.setMatrix("projection", projection); // note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
-        shaderProgram.setMatrix("view", view);
+        shader.setMatrix("projection", projection); // note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
+        shader.setMatrix("view", view);
+        shader.setMatrix("model", model);
         
         glBindVertexArray(VAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, container.getID());
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, container_specular.getID());
-
-        for (int i = 0; i < cubes_positions.size(); i++)
-        {
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, cubes_positions[i]);
-            model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.f), glm::vec3(0.0f, 1.0f, 0.0f));
-            shaderProgram.setMatrix("model", model);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-        
-
-        lightingShader.use();
-        lightingShader.setVec3("objectColor", glm::vec3(1.0f, 1.0f, 1.0f));
-        lightingShader.setVec3("lightColor",  glm::vec3(1.0f, 1.0f, 1.0f));
-        lightingShader.setMatrix("projection", projection);
-        lightingShader.setMatrix("view", view);
-
-        glBindVertexArray(lightVAO);
-        for (size_t i = 0; i < pointLightPositions.size(); i++)
-        {
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, pointLightPositions[i]);
-            model = glm::scale(model, glm::vec3(0.2f)); 
-            lightingShader.setMatrix("model", model);
-
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-        
-
+        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
@@ -290,4 +227,11 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.updateFOV(xoffset, yoffset);
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        xRayToggled = !xRayToggled; // Toggle the switch
+        std::cout << "Toggled: " << xRayToggled << std::endl;
+    }
 }
