@@ -1,2 +1,2 @@
 @echo off
-start ./bin/sandbox.exe
+start ./build/debug/sandbox.exe

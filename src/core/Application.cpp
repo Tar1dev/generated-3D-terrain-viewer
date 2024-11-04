@@ -34,7 +34,7 @@ bool Application::initialize() {
     shader.use();
     
     camera = Camera(window->getWidth(), window->getHeight());
-    terrain = Terrain();
+    terrain = Terrain(9846151u);
     terrain.initialize();
 
 

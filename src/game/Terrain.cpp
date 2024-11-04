@@ -1,11 +1,10 @@
 #include <game/Terrain.hpp>
-#include <utils/PerlinNoise.hpp>
 
-Terrain::Terrain() {}
+Terrain::Terrain(siv::PerlinNoise::seed_type seed) {
+    this->seed = seed;
+}
 
 void Terrain::initialize() {
-    const siv::PerlinNoise::seed_type seed = 98462626u;
-
 	const siv::PerlinNoise perlin{ seed };
 
     const int terrain_witdh = 100;
